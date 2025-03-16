@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 import traceback
+from dataclasses import dataclass
 
 from rich.console import Console
 
@@ -12,8 +13,65 @@ from myagents.planner_agent import WebSearchItem, WebSearchPlan, planner_agent
 from myagents.search_agent import search_agent
 from myagents.writer_agent import ReportData, writer_agent
 from printer import Printer
-from myagents.format_agent import format_agent, ReportLocation
 
+import markdown
+from weasyprint import HTML, CSS
+import os
+import uuid
+
+@dataclass
+class ReportLocation:
+    path: str
+
+def format_report_to_pdf(markdown_content: str) -> str:
+    print(f"Formatting report to PDF: {markdown_content}")
+    """Format the report into a PDF file, and return the path to the file."""
+    
+    print("[DEBUG] Converting markdown to HTML...")
+    # Convert markdown to HTML
+    html_content = markdown.markdown(markdown_content)
+    print(f"[DEBUG] Generated HTML content: {html_content[:200]}...")
+
+    print("[DEBUG] Generating unique filename...")
+    # Generate a unique filename
+    filename = f"report_{uuid.uuid4()}.pdf"
+    path = os.path.join(os.getcwd(), filename)
+    print(f"[DEBUG] File will be saved to: {path}")
+
+    print("[DEBUG] Converting to PDF using WeasyPrint...")
+    try:
+        # Create basic CSS styling
+        css = CSS(string='''
+            body { 
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                margin: 1in;
+            }
+            h1 { font-size: 24px; margin-top: 20px; }
+            h2 { font-size: 20px; margin-top: 15px; }
+            h3 { font-size: 16px; margin-top: 10px; }
+            p { margin-bottom: 10px; }
+        ''')
+
+        # Wrap HTML content in basic structure
+        full_html = f"""
+        <html>
+            <body>
+                {html_content}
+            </body>
+        </html>
+        """
+
+        # Generate PDF using WeasyPrint
+        HTML(string=full_html).write_pdf(path, stylesheets=[css])
+        print(f"[DEBUG] PDF successfully generated at: {path}")
+        return path
+        
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")
+        print("Stack trace:")
+        traceback.print_exc()
+        raise
 
 class ResearchManager:
     def __init__(self):
@@ -178,13 +236,10 @@ class ResearchManager:
         self.printer.update_item("formatting", "Converting report to PDF...")
         
         try:
-            result = await Runner.run(
-                format_agent,
-                markdown_report,
-            )
-            print(f"\nPDF Report generated successfully at: {result.final_output.path}")
+            path = format_report_to_pdf(markdown_report)
+            print(f"\nPDF Report generated successfully at: {path}")
             self.printer.mark_item_done("formatting")
-            return result.final_output_as(ReportLocation)
+            return ReportLocation(path=path)
         except Exception:
             print("Failed to format report to PDF")
             print("Error details:")
