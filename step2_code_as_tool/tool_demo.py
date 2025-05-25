@@ -1,10 +1,11 @@
 import asyncio
-import random
-from typing import Any
-from agents import Agent, Runner, set_default_openai_key
-from agents import AgentHooks, RunContextWrapper, Tool, function_tool
-from pydantic import BaseModel
 import os
+import random
+
+from agents import Agent, Runner, set_default_openai_key
+from agents import function_tool
+from pydantic import BaseModel
+
 
 @function_tool
 def gen_random() -> int:
